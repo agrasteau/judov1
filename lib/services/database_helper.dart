@@ -4,7 +4,8 @@ import 'package:path/path.dart';
 import 'dart:io';
 
 import '../models/judoka.dart';
-import '../models/groupe.dart'; // Importer le modèle Groupe
+import '../models/groupe.dart';
+import '../models/seance.dart'; // Importer le modèle Séance
 
 class DatabaseHelper {
   static final DatabaseHelper _instance = DatabaseHelper._internal();
@@ -27,13 +28,12 @@ class DatabaseHelper {
     String path = join(documentsDirectory.path, 'judo_federation.db');
     return await openDatabase(
       path,
-      version: 1, // Gardez la version à 1 si c'est la première création, sinon incrémentez
+      version: 2, // Incrémentez la version de la base de données
       onCreate: _onCreate,
-      onUpgrade: _onUpgrade, // Ajoutez cette méthode pour gérer les mises à jour
+      onUpgrade: _onUpgrade,
     );
   }
 
-  // --- Méthode de création initiale des tables ---
   Future _onCreate(Database db, int version) async {
     await db.execute('''
       CREATE TABLE Judokas (
@@ -51,7 +51,7 @@ class DatabaseHelper {
       CREATE TABLE Groupes (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nom TEXT NOT NULL,
-        categoriesAge TEXT -- Ex: "Eveils Judo,Pré-Poussins"
+        categoriesAge TEXT
       )
     ''');
     await db.execute('''
@@ -63,22 +63,36 @@ class DatabaseHelper {
         FOREIGN KEY (judoka_id) REFERENCES Judokas(id) ON DELETE CASCADE
       )
     ''');
+    await db.execute('''
+      CREATE TABLE Seances (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        professeurId INTEGER NOT NULL,
+        groupeId INTEGER NOT NULL,
+        description TEXT NOT NULL,
+        dateHeure TEXT NOT NULL,
+        FOREIGN KEY (professeurId) REFERENCES Judokas(id),
+        FOREIGN KEY (groupeId) REFERENCES Groupes(id)
+      )
+    ''');
   }
 
-  // --- Méthode de mise à jour de la base de données (si version incrémentée) ---
-  // IMPORTANT: Si vous avez déjà exécuté l'application, vous devrez soit
-  // - Incrémenter la version (`version: 2`) et implémenter `_onUpgrade`
-  // - Désinstaller l'application de l'émulateur/téléphone pour recréer la DB
-  //   (Plus simple pour le développement initial)
   Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 1) {
-      // Si l'ancienne version était 0 ou inexistante, on recrée tout comme dans onCreate
-      await _onCreate(db, newVersion);
+    if (oldVersion < 2) {
+      // Ajoute la table Seances si la version est inférieure à 2
+      await db.execute('''
+        CREATE TABLE Seances (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          professeurId INTEGER NOT NULL,
+          groupeId INTEGER NOT NULL,
+          description TEXT NOT NULL,
+          dateHeure TEXT NOT NULL,
+          FOREIGN KEY (professeurId) REFERENCES Judokas(id),
+          FOREIGN KEY (groupeId) REFERENCES Groupes(id)
+        )
+      ''');
     }
-    // Ajoutez des migrations ici si vous avez besoin de changer le schéma de la DB plus tard
-    // Exemple: if (oldVersion < 2) { await db.execute("ALTER TABLE Judokas ADD COLUMN newColumn TEXT"); }
+    // Ajoutez d'autres migrations ici si vous avez besoin de changer le schéma de la DB plus tard
   }
-
 
   // --- Opérations CRUD pour les Judokas (déjà présentes) ---
   Future<int> insertJudoka(Judoka judoka) async {
@@ -113,14 +127,12 @@ class DatabaseHelper {
     );
   }
 
-  // --- NOUVELLES Opérations CRUD pour les Groupes ---
-
+  // --- Opérations CRUD pour les Groupes (déjà présentes) ---
   Future<int> insertGroupe(Groupe groupe) async {
     Database db = await database;
     return await db.insert('Groupes', groupe.toMap());
   }
 
-  // Récupérer un groupe avec ses judokas associés
   Future<Groupe?> getGroupeById(int id) async {
     Database db = await database;
     List<Map<String, dynamic>> groupMaps = await db.query(
@@ -188,8 +200,7 @@ class DatabaseHelper {
     );
   }
 
-  // --- NOUVELLES Opérations pour la table de liaison GroupeJudokas ---
-
+  // --- Opérations pour la table de liaison GroupeJudokas (déjà présentes) ---
   Future<void> addJudokasToGroup(int groupeId, List<int> judokaIds) async {
     Database db = await database;
     Batch batch = db.batch();
@@ -212,7 +223,6 @@ class DatabaseHelper {
     await batch.commit(noResult: true);
   }
 
-  // Supprime toutes les liaisons pour un groupe donné (utilisé avant la mise à jour)
   Future<void> deleteAllJudokasFromGroup(int groupeId) async {
     Database db = await database;
     await db.delete(
@@ -222,7 +232,6 @@ class DatabaseHelper {
     );
   }
 
-  // Récupérer les IDs des judokas associés à un groupe
   Future<List<int>> getJudokaIdsForGroup(int groupeId) async {
     Database db = await database;
     final List<Map<String, dynamic>> maps = await db.query(
@@ -232,5 +241,52 @@ class DatabaseHelper {
       whereArgs: [groupeId],
     );
     return List.generate(maps.length, (i) => maps[i]['judoka_id'] as int);
+  }
+
+  // --- NOUVELLES Opérations CRUD pour les Séances ---
+
+  Future<int> insertSeance(Seance seance) async {
+    Database db = await database;
+    return await db.insert('Seances', seance.toMap());
+  }
+
+  Future<Seance?> getSeanceById(int id) async {
+    Database db = await database;
+    List<Map<String, dynamic>> seanceMaps = await db.query(
+      'Seances',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
+
+    if (seanceMaps.isEmpty) return null;
+
+    return Seance.fromMap(seanceMaps.first);
+  }
+
+  Future<List<Seance>> getSeances() async {
+    Database db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('Seances');
+    return List.generate(maps.length, (i) {
+      return Seance.fromMap(maps[i]);
+    });
+  }
+
+  Future<int> updateSeance(Seance seance) async {
+    Database db = await database;
+    return await db.update(
+      'Seances',
+      seance.toMap(),
+      where: 'id = ?',
+      whereArgs: [seance.id],
+    );
+  }
+
+  Future<int> deleteSeance(int id) async {
+    Database db = await database;
+    return await db.delete(
+      'Seances',
+      where: 'id = ?',
+      whereArgs: [id],
+    );
   }
 }

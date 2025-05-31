@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'judoka_list_page.dart';
-import 'groupe_list_page.dart'; // Importer la nouvelle page
+import 'groupe_list_page.dart';
+import 'seance_list_page.dart'; // Importer la nouvelle page
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -28,20 +29,21 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 20),
             _buildOptionButton(
               context,
-              'Séances',
-              Icons.event,
-                  () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Page Séances à développer')),
+              'Groupes',
+              Icons.group,
+                  () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const GroupeListPage()),
               ),
             ),
             const SizedBox(height: 20),
             _buildOptionButton(
               context,
-              'Groupes',
-              Icons.group,
-                  () => Navigator.push( // Modifier ici pour naviguer vers GroupeListPage
+              'Séances',
+              Icons.event,
+                  () => Navigator.push( // Modifier ici pour naviguer vers SeanceListPage
                 context,
-                MaterialPageRoute(builder: (context) => const GroupeListPage()),
+                MaterialPageRoute(builder: (context) => const SeanceListPage()),
               ),
             ),
           ],

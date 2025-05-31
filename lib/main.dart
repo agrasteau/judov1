@@ -3,7 +3,7 @@ import 'package:provider/provider.dart';
 import 'pages/home_page.dart';
 import 'providers/judoka_provider.dart';
 import 'providers/groupe_provider.dart';
-import 'services/database_helper.dart'; // Importer DatabaseHelper
+import 'providers/seance_provider.dart'; // Importer le nouveau provider
 
 void main() {
   runApp(const MyApp());
@@ -16,14 +16,9 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MultiProvider(
       providers: [
-        // Utiliser Provider pour fournir une instance de DatabaseHelper
-        // C'est une instance unique (singleton), donc on peut utiliser Provider.value ou un simple Provider
-        // Pour les singletons, on peut le créer une fois et le fournir
-        Provider<DatabaseHelper>(create: (_) => DatabaseHelper(), // Fournit l'instance singleton de DatabaseHelper
-          lazy: false, // Initialise la DB au démarrage de l'app
-        ),
         ChangeNotifierProvider(create: (context) => JudokaProvider()),
         ChangeNotifierProvider(create: (context) => GroupeProvider()),
+        ChangeNotifierProvider(create: (context) => SeanceProvider()), // Ajouter ici
       ],
       child: MaterialApp(
         title: 'Fédération Judo App',
